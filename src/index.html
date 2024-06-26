@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Realtime Process Stats</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <canvas id="processChart" width="800" height="400"></canvas>
+
+    <script>
+        const socket = new WebSocket("ws://localhost:8080/ws/");
+
+        socket.onopen = function (event) {
+            console.log("WebSocket opened");
+        };
+
+        socket.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            console.log("Received data:", data);
+
+            // Update chart with received data
+            updateChart(data);
+        };
+
+        socket.onclose = function (event) {
+            console.log("WebSocket closed");
+        };
+
+        function updateChart(data) {
+            const ctx = document.getElementById("processChart").getContext("2d");
+
+            if (!window.processChart) {
+                window.processChart = new Chart(ctx, {
+                    type: "line",
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: "Memory Usage (KB)",
+                                data: [],
+                                borderColor: "blue",
+                                fill: false
+                            },
+                            {
+                                label: "CPU Usage (%)",
+                                data: [],
+                                borderColor: "green",
+                                fill: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Time'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Usage'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            window.processChart.data.labels.push(new Date(data.timestamp * 1000).toLocaleTimeString());
+            window.processChart.data.datasets[0].data.push(data.mem_usage_kb);
+            window.processChart.data.datasets[1].data.push(data.cpu_usage_percent);
+
+            // Limit the number of data points shown to 20 for better performance
+            if (window.processChart.data.labels.length > 20) {
+                window.processChart.data.labels.shift();
+                window.processChart.data.datasets[0].data.shift();
+                window.processChart.data.datasets[1].data.shift();
+            }
+
+            window.processChart.update();
+        }
+    </script>
+</body>
+</html>
